@@ -1,9 +1,6 @@
 import pandas as pd
-from pandas import json_normalize
 import requests as rq
-import csv
-import json
-
+import psycopg2
 from pandas import json_normalize
 
 CITY = "Moscow"
@@ -31,7 +28,7 @@ def get_weather_data(URL):
         print(f"Произошла ошибка: {e}")
         raise
 
-def extract_weather_data(data:dict) -> pd.DataFrame:
+def extract_weather_data(data:dict): # -> pd.DataFrame:
 
     row = {}
 
@@ -56,9 +53,32 @@ def extract_weather_data(data:dict) -> pd.DataFrame:
         "sunset": data["sys"]["sunset"]
     }
 
-    return pd.DataFrame([row])
+    # return pd.DataFrame([row])
+    return row
+
+list_val = extract_weather_data(extract_weather_data(get_weather_data(URL)))
+
+limited_list_val = dict(list(list_val.items())[0:3])
 
 
-data = get_weather_data(URL)
-data = extract_weather_data(data)
-print(data)
+params = {
+    "host":"localhost",
+    "port":3,
+    "dbname":"airflow",
+    "user":"airflow",
+    "password":"airflow"
+}
+
+conn = psycopg2.connect(**params)
+
+with conn.cursor() as cursor:
+    columns = ', '.join(limited_list_val.keys())
+    values = ', '.join(['%s'] * len(limited_list_val))
+
+    print(columns, values)
+
+    QUERY = f'''insert into public.test_table (col1, col2, col3) values ({values});'''
+
+    cursor.execute(QUERY, list(limited_list_val.values()))
+
+    conn.commit()
